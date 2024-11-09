@@ -1,0 +1,4 @@
+/.quarto/
+/_*.local
+*_cache/
+/_site/
