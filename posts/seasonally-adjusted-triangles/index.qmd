@@ -1,0 +1,168 @@
+---
+title: "Seasonality in Loss Development Triangles"
+description: "How to handle seasonality in loss development triangles"
+author: "Zachary Luety"
+date: "11/11/2024"
+output-dir: docs
+categories: [code, analysis]
+image: "thumbnail.jpg"
+---
+```{r}
+#| code-fold: true
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(ChainLadder))
+library(gt)
+```
+
+# Problem statement
+
+In this post we introduce the impact of seasonality on loss development factors.
+
+# Data
+
+First we will create simulated loss data. This loss data wil include seasonal effects where losses in calendar quarter vary by calendar quarter.
+
+Each origination period should have identical ultimate losses, however, as we will see, the seasonal effects within our data distorts the our development factors resulting in incorrect ultimate loss estimates.
+
+```{r}
+loss <- tibble(
+    origin = c(rep(1, 8), rep(2, 7), rep(3, 6), rep(4, 5), rep(5, 4), rep(6, 3), rep(7, 2), rep(8, 1)),
+    development = c(1:8,1:7,1:6,1:5,1:4,1:3,1:2,1)
+)
+
+loss <- loss |> mutate(
+    calPeriod = origin + development - 1,
+    calQuarter = ifelse((origin + development - 1) %% 4 == 0, 4, (origin + development - 1) %% 4),
+    lossAmt = case_when(
+        calQuarter == 1 ~ 100,
+        calQuarter %in% c(2, 3) ~ 50,
+        calQuarter == 4 ~ 40
+    )
+)
+```
+
+Now we use the `ChainLadder` package to create a development triangle from our loss data.
+
+```{r}
+# Create a triangle
+triangle <- as.triangle(loss, origin = "origin", dev = "development", value = "lossAmt")
+triangle
+
+# Make a cumulative triangle
+cumTriangle <- incr2cum(triangle)
+cumTriangle
+
+# Show age-to-age factor
+ata(cumTriangle)
+
+# Create a Chainladder model
+CL <- chainladder(cumTriangle)
+
+# Create runoff triangle
+predict(CL)
+```
+
+While we would expect each policy period to ultimate have the same 480 ultimate loss, seasonality distorts the loss development factors and leads to incorrect ultimates.
+
+# Correcting for seasonality
+
+Now that we understand the problem, how do we fix it? We will start with an exerpt from the excellent Forecasting: Principles and Practice
+
+<blockquote>
+... variation seen in seasonal data may be due to simple calendar effects. In such cases, it is usually much easier to remove the variation before doing any further analysis. 
+<br><br>
+For example, if you are studying the total monthly sales in a retail store, there will be variation between the months simply because of the different numbers of trading days in each month, in addition to the seasonal variation across the year. It is easy to remove this variation by computing average sales per trading day in each month, rather than total sales in the month. Then we effectively remove the calendar variation.
+</blockquote>
+
+While we are not working with sales data, we can use this principle to eliminate the seasonal effects within our loss data removing the variation between quarters prior to developing our losses.
+
+```{r}
+byQtr <- loss |>
+    filter(development <= 4) |> # focus on first 4 quarters
+    pivot_wider(id_cols = origin, names_from = calQuarter, values_from = lossAmt) |> # pivot table by quarter
+    drop_na() %>% # complete year only
+    mutate(
+        yearTotal = rowSums(across(`1`: `4`)),
+        expectedPerQtr = yearTotal / 4,
+        across(`1`:`4`, ~ .x / expectedPerQtr)
+    ) |>
+    summarize(across(`1`:`4`, mean))
+
+seasonal_factors <- tibble(
+    calQuarter = as.integer(names(byQtr)),
+    relativity = as.vector(t(byQtr))
+)
+seasonal_factors
+```
+
+Now we can bring in our relativity factors and create an adjusted loss amount and develop to ultimate.
+
+```{r}
+adj_triangle <- loss |>
+    inner_join(seasonal_factors, by = "calQuarter") |>
+    mutate(
+        lossAmtAdj = lossAmt / relativity
+    ) |>
+        as.triangle(origin = "origin", dev = "development", value = "lossAmtAdj")
+adj_triangle
+```
+
+```{r}
+# Make a cumulative triangle
+cum_adj_triangle <- incr2cum(adj_triangle)
+cum_adj_triangle
+
+# Create a Chainladder model
+CL_adj <- chainladder(cum_adj_triangle)
+
+# Create runoff triangle
+ult_triangle <- predict(CL_adj)
+ult_triangle
+```
+
+# Converting back to unadjusted values
+
+If we actually care about the true loss emergence pattern, we need to return to an unadjusted loss amount. To do that, we back out the seasonal adjustment on our predictions.
+
+```{r}
+# convert triangle to incremental
+inc_tri <- cum2incr(ult_triangle)
+
+# add fields necessary to join
+forecast <- inc_tri |>
+    as.data.frame() |> # convert to long form
+    as_tibble() |>
+    rename(development = dev, lossAmt = value) |>
+    mutate(
+        origin = as.integer(origin),
+        calPeriod = origin + development - 1,
+        calQuarter = ifelse((origin + development - 1) %% 4 == 0, 4, (origin + development - 1) %% 4)
+    ) |>
+    filter(calPeriod > 8) |>
+    inner_join(seasonal_factors, by = "calQuarter") |>
+    mutate(
+        lossAmt = lossAmt * relativity
+    ) |>
+    as_tibble() |>
+    select(origin, development, calPeriod, calQuarter, lossAmt)
+forecast
+```
+
+Finally, we can bring combine our original data and our forecast, display as a fully developed triangle and check our results.
+
+```{r}
+ultimate_loss <- union(loss, forecast) |>
+    pivot_wider(id_cols = origin, names_from = development, values_from = lossAmt)
+
+ultimate_loss_mat <- ultimate_loss |>
+    select(`1`:`8`) |>
+    as.matrix()
+
+rownames(ultimate_loss_mat) <- ultimate_loss$origin
+names(dimnames(ultimate_loss_mat)) <- c("origin", "dev")
+ultimate_loss_mat
+```
+
+Now we can see we are estimating the appropriate ultimate loss amount while maintaining seasonal variability.
+
+In a future post, we will continue explore the effects of seasonality when other distortions exists, such as policy year trends.

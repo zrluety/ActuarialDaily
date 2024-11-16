@@ -1,5 +1,6 @@
 project:
   type: website
+  output-dir: docs
 
 website:
   title: "Actuarial Daily"
@@ -7,9 +8,9 @@ website:
     right:
       - about.qmd
       - icon: github
-        href: https://github.com/
-      - icon: twitter
-        href: https://twitter.com
+        href: https://github.com/zrluety
+      - icon: twitter-x
+        href: https://x.com/zrluety
 format:
   html:
     theme: cosmo
