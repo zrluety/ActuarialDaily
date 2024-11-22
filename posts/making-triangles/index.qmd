@@ -1,12 +1,12 @@
 ---
-title: "Resharping "
-description: "Creating Loss Triangles"
+title: "Modern Tooling to Create Development Triangles "
+description: "Build development triangles using Pandas, Polars, and DuckDB"
 author: "Zachary Luety"
 date: "11/15/2024"
 image: "chart.png"
 output-dir: docs
 categories: [code, analysis]
-draft: true
+draft: false
 jupyter: python3
 ---
 
