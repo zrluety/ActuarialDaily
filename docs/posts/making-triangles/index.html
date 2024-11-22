@@ -8,7 +8,7 @@
 
 <meta name="author" content="Zachary Luety">
 <meta name="dcterms.date" content="2024-11-15">
-<meta name="description" content="Creating Loss Triangles">
+<meta name="description" content="Build development triangles using Pandas, Polars, and DuckDB">
 
 <title>Actuarial Daily - Modern Tooling to Create Development Triangles</title>
 <style>
@@ -153,10 +153,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Resharping</h1>
+      <h1 class="title">Modern Tooling to Create Development Triangles</h1>
                   <div>
         <div class="description">
-          Creating Loss Triangles
+          Build development triangles using Pandas, Polars, and DuckDB
         </div>
       </div>
                           <div class="quarto-categories">
@@ -201,7 +201,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="making-loss-development-triangles" class="level1">
 <h1>Making Loss Development triangles</h1>
 <p>In this post we’ll look at 3 ways to create a loss development triangle using Pandas, Polars, and DuckDB.</p>
-<div id="4a0dff08" class="cell" data-execution_count="1">
+<div id="998d587d" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -210,15 +210,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> polars <span class="im">as</span> pl</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>For this post, we will use the PP Auto Dataset available on the <a href="https://www.casact.org/sites/default/files/2021-04/ppauto_pos.csv">CAS website</a>.</p>
-<p>We’ll create a few variables to hold the path of our dataset that will be reused by each tool below.</p>
-<div id="367fa44c" class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># data_filepath = Path.cwd() / "posts" / "making-triangles" / "ppauto_pos.csv"</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>data_filepath <span class="op">=</span> <span class="st">'https://www.casact.org/sites/default/files/2021-04/ppauto_pos.csv'</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>data_filepath_str <span class="op">=</span> os.fspath(data_filepath) <span class="co"># string representation for DuckDB</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="e18ad796" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>data_filepath <span class="op">=</span> <span class="st">'https://www.casact.org/sites/default/files/2021-04/ppauto_pos.csv'</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="pandas" class="level2">
 <h2 class="anchored" data-anchor-id="pandas">Pandas</h2>
-<div id="322d2203" class="cell" data-execution_count="3">
+<div id="12032fcf" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> (</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    pd.read_csv(data_filepath)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    .query(<span class="st">"GRCODE == 43 and DevelopmentYear &lt;= 1997"</span>) <span class="co"># filter to single insurer and exclude the bottom right of the development triangle</span></span>
@@ -337,7 +334,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>To create the triangle we use the pivot_table method.</p>
-<div id="ba2efc19" class="cell" data-execution_count="4">
+<div id="55e31e5f" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>data.pivot(</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    values<span class="op">=</span><span class="st">"CumPaidLoss_B"</span>,</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    index<span class="op">=</span><span class="st">"AccidentYear"</span>,</span>
@@ -518,7 +515,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="polars" class="level2">
 <h2 class="anchored" data-anchor-id="polars">Polars</h2>
-<div id="004f2a24" class="cell" data-execution_count="5">
+<div id="0558b91a" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> (</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    pl.read_csv(data_filepath)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    .<span class="bu">filter</span>((pl.col(<span class="st">"GRCODE"</span>) <span class="op">==</span> <span class="dv">43</span>) <span class="op">&amp;</span> (pl.col(<span class="st">"DevelopmentYear"</span>) <span class="op">&lt;=</span> <span class="dv">1997</span>))</span>
@@ -740,7 +737,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 </div>
-<div id="b0363f20" class="cell" data-execution_count="6">
+<div id="36ed8d85" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>data.<span class="bu">filter</span>(</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    (pl.col(<span class="st">"GRCODE"</span>) <span class="op">==</span> <span class="dv">43</span>) <span class="op">&amp;</span> (pl.col(<span class="st">"DevelopmentYear"</span>) <span class="op">&lt;=</span> <span class="dv">1997</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>).pivot(</span>
@@ -927,13 +924,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="duckdb" class="level2">
 <h2 class="anchored" data-anchor-id="duckdb">DuckDB</h2>
-<div id="c5f30331" class="cell" data-execution_count="7">
+<div id="98707aee" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>duckdb.sql(<span class="ss">f"""</span><span class="ch">\</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="ss">CREATE TABLE data AS</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ss">    SELECT * FROM read_csv('</span><span class="sc">{</span>data_filepath_str<span class="sc">}</span><span class="ss">') WHERE GRCODE = 43 AND DevelopmentYear &lt;= 1997;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ss">    SELECT * FROM read_csv('</span><span class="sc">{</span>data_filepath<span class="sc">}</span><span class="ss">') WHERE GRCODE = 43 AND DevelopmentYear &lt;= 1997;</span></span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="ss">"""</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="a9647d9d" class="cell" data-execution_count="8">
+<div id="9c27550b" class="cell" data-execution_count="8">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>duckdb.sql(<span class="st">"""</span><span class="ch">\</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="st">    PIVOT data</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="st">    ON DevelopmentLag</span></span>
@@ -962,7 +959,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>Unfortunately, this orders columns as strings so DevelopmentLag 10 comes before DevelopmentLag2. One workaround for this is to left pad (<code>lpad</code>) the DevelopmentLag prior to pivoting so the columns sort as expected.</p>
-<div id="dcc71e0a" class="cell" data-execution_count="9">
+<div id="31cd9cfa" class="cell" data-execution_count="9">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>duckdb.sql(</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"""</span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="st">    WITH cte</span></span>
