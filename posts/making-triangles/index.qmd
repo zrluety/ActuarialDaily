@@ -1,0 +1,117 @@
+---
+title: "Resharping "
+description: "Creating Loss Triangles"
+author: "Zachary Luety"
+date: "11/15/2024"
+image: "chart.png"
+output-dir: docs
+categories: [code, analysis]
+draft: true
+jupyter: python3
+---
+
+# Making Loss Development triangles
+
+In this post we'll look at 3 ways to create a loss development triangle using Pandas, Polars, and DuckDB.
+
+```{python}
+import os
+from pathlib import Path
+
+import duckdb
+import pandas as pd
+import polars as pl
+```
+
+For this post, we will use the PP Auto Dataset available on the [CAS website](https://www.casact.org/sites/default/files/2021-04/ppauto_pos.csv).
+
+```{python}
+data_filepath = 'https://www.casact.org/sites/default/files/2021-04/ppauto_pos.csv'
+```
+
+## Pandas
+
+```{python}
+data = (
+    pd.read_csv(data_filepath)
+    .query("GRCODE == 43 and DevelopmentYear <= 1997") # filter to single insurer and exclude the bottom right of the development triangle
+)
+data.head()
+```
+
+To create the triangle we use the pivot_table method.
+```{python}
+data.pivot(
+    values="CumPaidLoss_B",
+    index="AccidentYear",
+    columns="DevelopmentLag",
+)
+```
+
+## Polars
+```{python}
+data = (
+    pl.read_csv(data_filepath)
+    .filter((pl.col("GRCODE") == 43) & (pl.col("DevelopmentYear") <= 1997))
+)
+
+data
+```
+
+
+```{python}
+data.filter(
+    (pl.col("GRCODE") == 43) & (pl.col("DevelopmentYear") <= 1997)
+).pivot(
+    on="DevelopmentLag",
+    index="AccidentYear",
+    values="CumPaidLoss_B"
+)
+```
+
+## DuckDB
+
+```{python}
+duckdb.sql(f"""\
+CREATE TABLE data AS
+    SELECT * FROM read_csv('{data_filepath}') WHERE GRCODE = 43 AND DevelopmentYear <= 1997;
+""")
+```
+
+```{python}
+duckdb.sql("""\
+    PIVOT data
+    ON DevelopmentLag
+    USING SUM(CumPaidLoss_B)
+    GROUP BY AccidentYear
+    ORDER BY AccidentYear
+""")
+```
+
+Unfortunately, this orders columns as strings so DevelopmentLag 10 comes before DevelopmentLag2. One workaround for this is to left pad (`lpad`) the DevelopmentLag prior to pivoting so the columns sort as expected.
+
+```{python}
+duckdb.sql(
+    """
+    WITH cte
+    AS
+    (
+        SELECT * REPLACE (lpad(CAST(DevelopmentLag AS VARCHAR),2,'0')) AS DevelopmentLag
+        FROM data
+        WHERE GRCODE == 43
+        AND DevelopmentYear <= 1997
+    )
+    PIVOT cte
+    ON DevelopmentLag
+    USING SUM(CumPaidLoss_B)
+    GROUP BY AccidentYear
+    ORDER BY AccidentYear
+    """
+)
+```
+
+# Conclusions
+
+Working as an actuary, it is more than likely that the standard way of building these triangles is using Excel. While none of these tools may feel exceptionally easier than building a triangle in Excel, if you are doing additional analysis using Python, being able to build triangles directly in your notebook may be helpful. Both Pandas and Polars offer similar functionality with similar syntax and ergonomics and are great options for building triangles in Python.
+
+DuckDB is appealing because it using SQL, which is nearly as familiar to most actuaries as Excel. Even though DuckDB's `pivot` statement is not standard SQL, the syntax feels familiar and is easy to work with. Unfortunately, the workaround required to sort the columns in the right order eliminates the complexity benefits from "just using SQL", so it is hard to recommend DuckDB for building triangles outside of Excel.
